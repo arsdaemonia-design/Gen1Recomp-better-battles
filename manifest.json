@@ -8,6 +8,10 @@
   "game_version": ">=0.0.0-dev <1.0.0",
   "category": "UI",
   "priority": 90,
+  "github": "arsdaemonia-design/Gen1Recomp-better-battles",
+  "permissions": [
+    "engine_internals"
+  ],
   "dependencies": [],
   "optional_dependencies": [],
   "conflicts": [],
