@@ -1,7 +1,6 @@
 # 🥊 Better Battles — Gen1Recomp Mod
 
-Mejora de batallas para el port **Gen1 Recompilation Project** de Pokémon Red/Blue.  
-Añade funciones de calidad de vida (QoL) que los juegos modernos introdujeron en generaciones posteriores, directamente en la Generación 1.
+**Better Battles** es una suite integral de mejoras de interfaz y calidad de vida (QoL) para las batallas de Pokémon Red/Blue en **Gen1Recomp**. Introduce funciones inspiradas en las generaciones modernas de Pokémon (indicadores de tipo estilo Johto, acceso rápido a objetos, Pokébola de captura en Pokémon salvajes ya registrados y gradientes animados de estado) manteniendo la estética fiel del Game Boy y soporte completo para modo 2D Clásico y Voxel 3D.
 
 ---
 
@@ -85,13 +84,18 @@ Todas las funciones se pueden activar/desactivar individualmente:
 ```
 better-battles/
 ├── manifest.json              # Metadatos del mod (v1.0.0)
+├── mod.card                   # Metadata para el manager y tooling
+├── CHANGELOG.md               # Historial de cambios
+├── .modkitignore              # Exclusiones de empaquetado
 ├── main.lua                   # Punto de entrada, menú de opciones
 ├── feature_status_ui.lua      # Gradientes y texto flotante de estado
 ├── feature_caught_indicator.lua # Pokébola de captura
 ├── feature_quick_item.lua     # Menú rápido de objetos
 ├── feature_type_badges.lua    # Cuadritos de tipo
+├── tests/                     # Pruebas automatizadas
+│   └── better_battles_test.lua
 └── assets/
-    └── types.png              # Asset de referencia (no utilizado en runtime)
+    └── types.png              # Asset de referencia
 ```
 
 ---
