@@ -81,9 +81,8 @@ Todas las funciones se pueden activar/desactivar individualmente:
 
 ### 📦 Instalación
 
-1. Descarga el archivo `.zip` de la sección de **Releases**.
-2. Coloca el archivo `.zip` directamente dentro de la carpeta `mods/` de Gen1Recomp (o arrástralo a la ventana del juego).
-3. Gen1Recomp detectará e instalará el archivo `.zip` automáticamente.
+
+1. Gen1Recomp detectará e instalará el archivo `.zip` automáticamente al instalarlo como mod.
 
 ---
 
@@ -161,9 +160,8 @@ All features can be toggled individually:
 
 ### 📦 Installation
 
-1. Download the `.zip` release file from **Releases**.
-2. Place the `.zip` file directly inside the `mods/` directory of Gen1Recomp (or drag and drop it into the game window).
-3. Gen1Recomp will automatically detect and load the `.zip` mod file.
+
+1. Gen1Recomp will automatically detect and load the `.zip` mod file, when mod installing.
 
 ---
 
