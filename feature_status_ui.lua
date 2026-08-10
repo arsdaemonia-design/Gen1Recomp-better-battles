@@ -11,19 +11,27 @@ return function(mod, services)
         SLP = {0.8, 0.8, 0.8},
     }
 
-    local function isFeatureEnabled(game)
+    local function isTextEnabled(game)
         if not game or not game.save or not game.save.modData then return true end
         local modData = game.save.modData["better-battles"]
         if not modData then return true end
-        if modData["status_ui"] == nil then return true end
-        return modData["status_ui"]
+        if modData["status_text"] == nil then return true end
+        return modData["status_text"]
+    end
+
+    local function isOverlayEnabled(game)
+        if not game or not game.save or not game.save.modData then return true end
+        local modData = game.save.modData["better-battles"]
+        if not modData then return true end
+        if modData["status_overlay"] == nil then return true end
+        return modData["status_overlay"]
     end
 
     -- 1. Texto flotante sobre el Pokémon
     local original_drawBattlerPic = BattleState.drawBattlerPic
     function BattleState:drawBattlerPic(battler, x, y, scale)
         original_drawBattlerPic(self, battler, x, y, scale)
-        if not isFeatureEnabled(self.game) then return end
+        if not isTextEnabled(self.game) then return end
         
         if battler and battler.shownStatus then
             local text = self:statusLabel({ status = battler.shownStatus })
@@ -80,10 +88,10 @@ return function(mod, services)
         return gradientMesh
     end
 
-    -- 3. Ocultar el estado en el HUD
+    -- 3. Ocultar el estado en el HUD (Solo si alguna de las funciones modded está activa)
     local original_drawHUDs = BattleState.drawHUDs
     function BattleState:drawHUDs(slide)
-        if not isFeatureEnabled(self.game) then
+        if not isTextEnabled(self.game) and not isOverlayEnabled(self.game) then
             return original_drawHUDs(self, slide)
         end
         
@@ -99,7 +107,7 @@ return function(mod, services)
 
     local original_wideDraw = WideBattle.draw
     function WideBattle.draw(battle)
-        if not isFeatureEnabled(battle.game) then
+        if not isTextEnabled(battle.game) and not isOverlayEnabled(battle.game) then
             return original_wideDraw(battle)
         end
         
@@ -117,7 +125,7 @@ return function(mod, services)
     local original_draw = BattleState.draw
     function BattleState:draw(...)
         original_draw(self, ...)
-        if not isFeatureEnabled(self.game) then return end
+        if not isOverlayEnabled(self.game) then return end
         
         local e_cond = self.enemy and not self.showEnemyTrainer and not self.enemySendingOut and not self.enemy.fainted
         local p_cond = self.player and not self.safari and not self.demo and not self.showPlayerBack

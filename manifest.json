@@ -17,5 +17,5 @@
   "conflicts": [],
   "incompatible": [],
   "experimental": false,
-  "description": "Battle QoL: Status gradients, caught indicator, quick items (Left Arrow), and type badges."
+  "description": "Battle QoL: Status gradients, caught indicator, quick items, type badges, and effective markers."
 }

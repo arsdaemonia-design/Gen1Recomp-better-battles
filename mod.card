@@ -1,7 +1,7 @@
 -- Sharing metadata (25-community-and-ecosystem.md 3.2). Read by tooling
 -- and the manager detail pane; never by the loader's merge.
 return {
-  summary = "Battle QoL: Status gradients, caught indicator, quick items (Left Arrow), and type badges.",
+  summary = "Battle QoL: Status gradients, caught indicator, quick items, type badges, and effective markers.",
   author = "arsdaemonia-design",
   contact = "https://github.com/arsdaemonia-design/Gen1Recomp-better-battles",
   tags = { "ui", "quality-of-life", "battle" },
@@ -11,6 +11,8 @@ return {
     },
     added = {
       ["Quick Item Selector"] = "Press Left Arrow during battle to choose and use Pokeballs or Potions directly.",
+      ["Effective Markers & STAB"] = "Shows move effectiveness against enemies in battle, with gold highlight for STAB.",
+      ["Party Advantage"] = "Displays a green up-arrow in the Party Menu during battle if a Pokemon has a super-effective move.",
       ["Options Menu"] = "Adds BETTER BATTLES section to the in-game Options menu for toggling all features.",
     },
     known = {},

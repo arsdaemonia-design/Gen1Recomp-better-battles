@@ -36,9 +36,14 @@ return function(mod, services)
             
             local rows = {
                 {
-                    label = "BETTER STATUS",
-                    value = function(g) return getBoolOption(g, "status_ui", true) and "ON" or "OFF" end,
-                    step = function(g, dir) return toggleBoolOption(g, "status_ui") end
+                    label = "STATUS TEXT",
+                    value = function(g) return getBoolOption(g, "status_text", true) and "ON" or "OFF" end,
+                    step = function(g, dir) return toggleBoolOption(g, "status_text") end
+                },
+                {
+                    label = "STATUS OVERLAY",
+                    value = function(g) return getBoolOption(g, "status_overlay", true) and "ON" or "OFF" end,
+                    step = function(g, dir) return toggleBoolOption(g, "status_overlay") end
                 },
                 {
                     label = "CAUGHT POKEBALL",
@@ -68,6 +73,11 @@ return function(mod, services)
                     label = "TYPE BADGES",
                     value = function(g) return getBoolOption(g, "type_badges", true) and "ON" or "OFF" end,
                     step = function(g, dir) return toggleBoolOption(g, "type_badges") end
+                },
+                {
+                    label = "EFFECTIVE MARKERS",
+                    value = function(g) return getBoolOption(g, "effective_markers", true) and "ON" or "OFF" end,
+                    step = function(g, dir) return toggleBoolOption(g, "effective_markers") end
                 }
             }
             
@@ -134,6 +144,7 @@ return function(mod, services)
         loadModule("feature_caught_indicator.lua"),
         loadModule("feature_quick_item.lua"),
         loadModule("feature_type_badges.lua"),
+        loadModule("feature_effective_markers.lua"),
     }
 
     -- Ejecutar/Instalar cada característica
