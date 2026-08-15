@@ -4,6 +4,17 @@ return function(mod)
     local Font = require("src.render.Font")
     local PartyMenu = require("src.ui.PartyMenu")
 
+    -- Fuente TTF PlainPixel (respeto de color): se usa para colorear el
+    -- multiplicador de efectividad (verde/rojo/negro). Se carga perezosa.
+    local modFont = nil
+    local function loadModFont()
+        if modFont then return modFont end
+        local ok, f = pcall(love.graphics.newFont,
+                            Font.PLAINPIXEL, Font.PLAINPIXEL_SIZE, "mono")
+        if ok then modFont = f end
+        return modFont
+    end
+
     local activeBattle = nil
 
     mod.events:on("battle.started", function(e) activeBattle = e.battle end)
@@ -16,21 +27,15 @@ return function(mod)
         return val == nil and true or val
     end
 
+    local TypeChart = require("src.battle.TypeChart")
+
     local function effectiveness(moveType, defenderTypes)
-        local mult = 10
-        for _, dt in ipairs(defenderTypes or {}) do
-            local row = mod.content.type_chart:get(moveType .. ">" .. dt)
-            if row and row.multiplier then
-                mult = math.floor(mult * row.multiplier / 10)
-            end
-        end
-        return mult
+        return TypeChart.effectiveness(moveType, defenderTypes or {})
     end
 
-    local function hasSTAB(moveType, attackerTypes)
-        if not attackerTypes then return false end
-        for _, at in ipairs(attackerTypes) do
-            if moveType == at then return true end
+    local function hasSTAB(moveType, atkTypes)
+        for _, at in ipairs(atkTypes or {}) do
+            if at == moveType then return true end
         end
         return false
     end
@@ -38,9 +43,34 @@ return function(mod)
     local NO_EFFECT_GLYPH = 0xF1
     local MORE_ARROW = 0xEE
 
+    -- Mapeo canvas UI -> ventana (replica Renderer:endFrame). Se usa en
+    -- render.hud para dibujar el overlay a resolución de ventana, igual que
+    -- el shot.canvas del modo voxel (los marcadores dejan de verse diminutos
+    -- y pixelados en el canvas 160x144).
+    local function uiOriginAndScale()
+        local Renderer = require("src.render.Renderer")
+        local ww, wh = love.graphics.getDimensions()
+        local pw, ph = ww, wh
+        if love.graphics.getPixelDimensions then pw, ph = love.graphics.getPixelDimensions() end
+        local dpiX, dpiY = 1, 1
+        if ww > 0 and pw > 0 then dpiX = pw / ww end
+        if wh > 0 and ph > 0 then dpiY = ph / wh end
+        local uiw, uih = Renderer:uiSize()
+        local Up = Renderer:uiScale()
+        if Renderer.uiFill then Up = math.min(ph / uih, pw / uiw) end
+        local Ux, Uy = Up / dpiX, Up / dpiY
+        local uox = math.floor((pw - uiw * Up) / 2) / dpiX
+        local uoy = math.floor((ph - uih * Up) / 2) / dpiY
+        return uox, uoy, Ux, Uy
+    end
+
     -- ========================================================================
     -- 1. Efectividad en la Selección de Movimientos (BattleState:draw)
     -- ========================================================================
+
+    -- Marcador del frame actual para render.hud (solo no-voxel).
+    local pendingMarker = nil
+
     local original_draw = BattleState.draw
     function BattleState:draw(...)
         original_draw(self, ...)
@@ -63,41 +93,194 @@ return function(mod)
         local mult = effectiveness(def.type, defTypes)
         local stab = hasSTAB(def.type, atkTypes)
 
-        -- Coordenadas: esquina superior derecha del cuadro TIPO/PP
-        local x = 78
+        -- Coordenadas: dentro del cuadro TIPO/PP, en la fila de TYPE/ pero
+        -- alejado del borde derecho del recuadro
+        local x = 72
         local y = 74
-        if self:isWideBattleLayout() then
-            x = 288
+        local wide = self:isWideBattleLayout()
+        if wide then
+            x = 282
             y = 120
         end
 
-        local g = love.graphics
-        g.push()
-        local prevShader = g.getShader()
+        -- Multiplicador numérico, a la izquierda del triángulo del marcador
+        local label
+        if mult == 0 then label = "×0"
+        elseif mult == 10 then label = "×1"
+        elseif mult == 20 then label = "×2"
+        elseif mult == 40 then label = "×4"
+        elseif mult == 5 then label = "×.5"
+        else label = "×.25" end
+        local lx, lny
+        if wide then
+            lx, lny = 266, 114
+        else
+            lx, lny = 58, 69
+        end
+
+        -- Sugerir el movimiento con mejor daño esperado (efectividad × potencia)
+        local bestIdx, bestScore = nil, 0
+        for i, mv in ipairs(self.player.curMoves or {}) do
+            local md = mod.content.moves:get(mv.id)
+            if md and md.power and md.power > 0 then
+                local m = effectiveness(md.type, defTypes)
+                local score = md.power * m
+                if score > bestScore then bestIdx, bestScore = i, score end
+            end
+        end
 
         local shot = self.dramaticShapeShot
         local isVoxel = shot and shot.canvas and shot.scale
+
+        local g = love.graphics
+
+        -- En voxel se dibuja en el shot.canvas (resolución de ventana) como
+        -- siempre. En normal se recolectan los datos y render.hud los pinta a
+        -- resolución de ventana sobre el frame compuesto, para que se vean tan
+        -- nítidos como en voxel en lugar de diminutos en el canvas 160x144.
         if isVoxel then
+            g.push()
+            local prevShader = g.getShader()
             g.setCanvas(shot.canvas)
+            g.setShader()
+
+            local s = shot.scale
+            local ly = shot.ly or 0
+            local cx = (x + 2) * s
+            local cy = ly + (y + 2) * s
+            local size = 3 * s
+
+            local function drawTriangle(dir, baseColor)
+                local pulse = math.sin(love.timer.getTime() * 8) * 0.2 + 0.8
+                if stab then
+                    g.setColor(1 * pulse, 0.84 * pulse, 0, 1) -- Dorado STAB
+                    g.setLineWidth(2 * s)
+                    if dir == "up" then
+                        g.polygon("line", cx, cy - size - 2*s, cx - size - 2*s, cy + size + 2*s, cx + size + 2*s, cy + size + 2*s)
+                    else
+                        g.polygon("line", cx, cy + size + 2*s, cx - size - 2*s, cy - size - 2*s, cx + size + 2*s, cy - size - 2*s)
+                    end
+                end
+                g.setColor(baseColor[1] * pulse, baseColor[2] * pulse, baseColor[3] * pulse, 1)
+                if dir == "up" then
+                    g.polygon("fill", cx, cy - size, cx - size, cy + size, cx + size, cy + size)
+                else
+                    g.polygon("fill", cx, cy + size, cx - size, cy - size, cx + size, cy - size)
+                end
+            end
+
+            -- Dibujar forma vectorizada
+            if mult == 0 then
+                if stab then
+                    g.setColor(1, 0.84, 0, 1)
+                    g.circle("fill", cx, cy, size + 2*s)
+                end
+                g.setColor(0.4, 0.4, 0.4, 1) -- Gris oscuro
+                g.circle("fill", cx, cy, size)
+                g.setColor(0, 0, 0, 1)
+                g.setLineWidth(1 * s)
+                g.line(cx - size/2, cy - size/2, cx + size/2, cy + size/2)
+                g.line(cx + size/2, cy - size/2, cx - size/2, cy + size/2)
+            elseif mult == 10 then
+                if stab then
+                    g.setColor(1, 0.84, 0, 1)
+                    g.circle("fill", cx, cy, size + 2*s)
+                end
+                g.setColor(0.75, 0.75, 0.8, 1) -- Gris claro/azulado
+                g.circle("fill", cx, cy, size)
+                g.setColor(0, 0, 0, 1)
+                g.setLineWidth(1.5 * s)
+                g.line(cx - size/1.5, cy, cx + size/1.5, cy)
+            elseif mult > 10 then
+                drawTriangle("up", {0, 0.8, 0, 1}) -- Súper efectivo
+            else
+                drawTriangle("down", {0.9, 0, 0, 1}) -- Poco efectivo
+            end
+
+            -- Sugerir el mejor movimiento: cuadrado dorado pulsante
+            if bestIdx then
+                local ix, iy
+                if wide then
+                    local col = (bestIdx - 1) % 2
+                    local row = math.floor((bestIdx - 1) / 2)
+                    ix, iy = (col == 0 and 108 or 214), 112 + row * 16 + 3
+                else
+                    ix, iy = 146, 96 + bestIdx * 8 + 3
+                end
+                local pulse = math.sin(love.timer.getTime() * 8) * 0.2 + 0.8
+                g.setColor(1 * pulse, 0.84 * pulse, 0, 1) -- Dorado
+                g.rectangle("fill", ix * s - 2 * s, ly + iy * s - 2 * s, 4 * s, 4 * s)
+            end
+
+            -- Multiplicador con la fuente TTF coloreada
+            g.push()
+            g.translate(shot.lx or 0, shot.ly or 0)
+            g.scale(s, s)
+            g.push()
+            g.translate(lx, lny)
+            g.scale(0.5, 0.5)
+            local prevFont = g.getFont()
+            local ttf = loadModFont()
+            local colored = ttf and ttf.hasGlyphs and ttf:hasGlyphs(label)
+            if colored then
+                g.setFont(ttf)
+                if mult > 10 then g.setColor(0, 0.8, 0.1, 1)
+                elseif mult < 10 and mult > 0 then g.setColor(0.85, 0.05, 0.05, 1)
+                else g.setColor(0.1, 0.1, 0.1, 1) end
+                g.print(label, 0, 0)
+            else
+                g.setColor(0, 0, 0, 1)
+                Font.draw(label, 0, 0)
+            end
+            g.setFont(prevFont)
+            g.pop()
+            g.pop()
+
+            g.pop()
+            g.setShader(prevShader)
+            g.setCanvas(shot.oldCanvas or nil)
+        else
+            pendingMarker = {
+                x = x, y = y, wide = wide,
+                mult = mult, stab = stab,
+                label = label, lx = lx, lny = lny,
+                bestIdx = bestIdx,
+                battle = self,
+            }
         end
+    end
 
-        g.setShader() -- Disable shader para colores reales
+    -- En no-voxel, dibujar el overlay del moveSelect sobre el frame compuesto
+    -- a resolución de ventana, igual que el shot.canvas del modo voxel.
+    mod.hooks:wrap("render.hud", function(nextFn, game, viewport)
+        nextFn(game, viewport)
+        local d = pendingMarker
+        pendingMarker = nil
+        if not d then return end
+        local battle = d.battle
+        if not battle or battle ~= activeBattle or battle.phase ~= "moveSelect" then return end
 
-        local s = isVoxel and shot.scale or 1
-        local ly = isVoxel and shot.ly or 0
-        local cx = (x + 2) * s
-        local cy = ly + (y + 2) * s
-        local size = 3 * s
+        local g = love.graphics
+        local prevShader = g.getShader()
+        g.setShader()
+        g.push()
+
+        local uox, uoy, Ux, Uy = uiOriginAndScale()
+        local cx = uox + (d.x + 2) * Ux
+        local cy = uoy + (d.y + 2) * Uy
+        local size = 3 * Ux
+        local stab = d.stab
+        local mult = d.mult
 
         local function drawTriangle(dir, baseColor)
             local pulse = math.sin(love.timer.getTime() * 8) * 0.2 + 0.8
             if stab then
                 g.setColor(1 * pulse, 0.84 * pulse, 0, 1) -- Dorado STAB
-                g.setLineWidth(2 * s)
+                g.setLineWidth(2 * Ux)
                 if dir == "up" then
-                    g.polygon("line", cx, cy - size - 2*s, cx - size - 2*s, cy + size + 2*s, cx + size + 2*s, cy + size + 2*s)
+                    g.polygon("line", cx, cy - size - 2*Ux, cx - size - 2*Ux, cy + size + 2*Ux, cx + size + 2*Ux, cy + size + 2*Ux)
                 else
-                    g.polygon("line", cx, cy + size + 2*s, cx - size - 2*s, cy - size - 2*s, cx + size + 2*s, cy - size - 2*s)
+                    g.polygon("line", cx, cy + size + 2*Ux, cx - size - 2*Ux, cy - size - 2*Ux, cx + size + 2*Ux, cy - size - 2*Ux)
                 end
             end
             g.setColor(baseColor[1] * pulse, baseColor[2] * pulse, baseColor[3] * pulse, 1)
@@ -108,47 +291,71 @@ return function(mod)
             end
         end
 
-        -- Dibujar forma vectorizada
         if mult == 0 then
-            -- Sin efecto: Círculo gris oscuro con una X
             if stab then
                 g.setColor(1, 0.84, 0, 1)
-                g.circle("fill", cx, cy, size + 2*s)
+                g.circle("fill", cx, cy, size + 2*Ux)
             end
-            g.setColor(0.4, 0.4, 0.4, 1) -- Gris oscuro
+            g.setColor(0.4, 0.4, 0.4, 1)
             g.circle("fill", cx, cy, size)
             g.setColor(0, 0, 0, 1)
-            g.setLineWidth(1 * s)
+            g.setLineWidth(1 * Ux)
             g.line(cx - size/2, cy - size/2, cx + size/2, cy + size/2)
             g.line(cx + size/2, cy - size/2, cx - size/2, cy + size/2)
         elseif mult == 10 then
-            -- Neutral: Círculo gris claro con un '-' (igual)
             if stab then
                 g.setColor(1, 0.84, 0, 1)
-                g.circle("fill", cx, cy, size + 2*s)
+                g.circle("fill", cx, cy, size + 2*Ux)
             end
-            g.setColor(0.75, 0.75, 0.8, 1) -- Gris claro/azulado
+            g.setColor(0.75, 0.75, 0.8, 1)
             g.circle("fill", cx, cy, size)
             g.setColor(0, 0, 0, 1)
-            g.setLineWidth(1.5 * s)
+            g.setLineWidth(1.5 * Ux)
             g.line(cx - size/1.5, cy, cx + size/1.5, cy)
         elseif mult > 10 then
-            drawTriangle("up", {0, 0.8, 0, 1}) -- Súper efectivo: Triángulo Verde
+            drawTriangle("up", {0, 0.8, 0, 1})
         else
-            drawTriangle("down", {0.9, 0, 0, 1}) -- Poco efectivo: Triángulo Rojo
+            drawTriangle("down", {0.9, 0, 0, 1})
         end
 
-        -- Marcar para que la paleta Game Boy no lo aplaste
-        if not isVoxel and PaletteFX and PaletteFX.markTrueColor then
-            PaletteFX.markTrueColor(x - 2, y - 2, 12, 12)
+        -- Cuadrado dorado del mejor movimiento
+        if d.bestIdx then
+            local ix, iy
+            if d.wide then
+                local col = (d.bestIdx - 1) % 2
+                local row = math.floor((d.bestIdx - 1) / 2)
+                ix, iy = (col == 0 and 108 or 214), 112 + row * 16 + 3
+            else
+                ix, iy = 146, 96 + d.bestIdx * 8 + 3
+            end
+            local pulse = math.sin(love.timer.getTime() * 8) * 0.2 + 0.8
+            g.setColor(1 * pulse, 0.84 * pulse, 0, 1) -- Dorado
+            g.rectangle("fill", uox + ix * Ux - 2 * Ux, uoy + iy * Uy - 2 * Uy, 4 * Ux, 4 * Uy)
         end
+
+        -- Multiplicador con la fuente TTF coloreada, a la izquierda del marcador
+        g.push()
+        g.translate(uox + d.lx * Ux, uoy + d.lny * Uy)
+        g.scale(0.5 * Ux, 0.5 * Uy)
+        local prevFont = g.getFont()
+        local ttf = loadModFont()
+        local colored = ttf and ttf.hasGlyphs and ttf:hasGlyphs(d.label)
+        if colored then
+            g.setFont(ttf)
+            if mult > 10 then g.setColor(0, 0.8, 0.1, 1)
+            elseif mult < 10 and mult > 0 then g.setColor(0.85, 0.05, 0.05, 1)
+            else g.setColor(0.1, 0.1, 0.1, 1) end
+            g.print(d.label, 0, 0)
+        else
+            g.setColor(0, 0, 0, 1)
+            Font.draw(d.label, 0, 0)
+        end
+        g.setFont(prevFont)
+        g.pop()
 
         g.pop()
         g.setShader(prevShader)
-        if isVoxel then
-            g.setCanvas(shot and shot.oldCanvas or nil)
-        end
-    end
+    end)
 
     -- ========================================================================
     -- 2. Ventaja en Menú de Equipo (PartyMenu Advantage)
@@ -210,21 +417,35 @@ return function(mod)
             -- Solo dibujamos si el Pokémon TIENE ataques útiles (ignorando su tipo base inútil)
             if hasAdvantage then
                 local slotY = PartyMenu.entryY(i)
-                
-                -- Obtener el nombre para calcular dónde termina exactamente el texto
-                local name = mon.nickname or (pData and pData.name) or ""
-                local nameWidth = #name * 8
-                
-                -- Posición X dinámicamente al lado derecho del nombre (24 es el offset inicial de X)
-                local cx = 24 + nameWidth + 6
-                -- Si el nombre es larguísimo (10 letras), lo topamos para que no encime feo
-                if cx > 100 then cx = 100 end
-
-                local cy = slotY + 5
-                local size = 3
 
                 local pulse = math.sin(love.timer.getTime() * 8) * 0.2 + 0.8
-                
+
+                -- Flecha de selección ▶ coloreada (posición fija x=0, al lado del
+                -- cursor): el poke actualmente seleccionado muestra su ventaja en
+                -- la propia flechita, sin depender del largo del nombre.
+                if i == self.index then
+                    local cy = slotY + 8
+                    g.setColor(1, 1, 1, 1)
+                    g.rectangle("fill", 0, cy, 8, 8)
+                    if isSTABAdvantage then
+                        g.setColor(1 * pulse, 0.84 * pulse, 0, 1) -- Dorado STAB
+                    else
+                        g.setColor(0, 0.85 * pulse, 0.1, 1) -- Verde
+                    end
+                    g.polygon("fill", 2, cy + 1, 2, cy + 7, 7, cy + 4)
+                    if PaletteFX and PaletteFX.markTrueColor then
+                        PaletteFX.markTrueColor(0, cy, 8, 8)
+                    end
+                end
+
+                -- Triángulo ▲ en posición FIJA en la fila inferior (y+8, la del
+                -- HP bar), pegado justo antes de la barra (que empieza en x=40):
+                -- ocupa 34-40. Nunca choca con nombres largos ni con el nivel
+                -- /status (x=104+).
+                local cx = 37
+                local cy = slotY + 12
+                local size = 3
+
                 if isSTABAdvantage then
                     g.setColor(1 * pulse, 0.84 * pulse, 0, 1) -- Dorado brillante para STAB Súper Efectivo
                 else

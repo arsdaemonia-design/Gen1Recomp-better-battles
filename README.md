@@ -29,15 +29,19 @@ Presiona **← Flecha Izquierda** durante el menú de batalla para abrir un sele
 - **Pokébolas** — se lanzan directamente sin abrir la mochila (solo en encuentros salvajes).
 - **Pociones** — curan al Pokémon activo instantáneamente sin abrir el menú de equipo.
 - Navega con **↑↓** entre categorías y **←→** entre objetos.
+- El menú se muestra **por encima** del menú de batalla, sin solaparse con él.
 
 #### 4. 🟦 Type Badges (Indicadores de Tipo)
-Muestra **cuadros de color** al lado del nivel de cada Pokémon en batalla, indicando su(s) tipo(s).
+Muestra **iconos de tipo nítidos** al lado del nivel de cada Pokémon en batalla, indicando su(s) tipo(s).
 - Inspirado en los iconos de tipo de Pokémon Gold/Silver.
-- Funciona tanto en modo clásico como en **Voxel 3D**.
+- Usa los **15 tipos reales de la Generación 1** (con color de respaldo si falta la imagen).
+- Se renderizan a resolución de ventana, tanto en modo clásico como en **Voxel 3D**.
 
 #### 5. ⚔️ Effective Markers & Party Advantage
 Muestra la efectividad de los ataques y ventajas de equipo (inspirado en Pokémon Switch):
 - **Battle Markers**: Al seleccionar un ataque, muestra un icono verde (Súper Efectivo), gris (Sin Efecto) o rojo (Poco Efectivo).
+- **Damage Multiplier**: Muestra el multiplicador numérico (**×0 / ×1 / ×2 / ×4 / ×.5 / ×.25**) coloreado junto al marcador (verde/rojo/gris).
+- **Best Move Suggestion**: Un **cuadrado dorado pulsante** resalta el movimiento con el mejor daño esperado (potencia × efectividad).
 - **STAB Highlight**: Los ataques que comparten tipo con tu Pokémon reciben un **brillo dorado y pulso animado**.
 - **Party Advantage**: Al abrir tu Mochila de Equipo en batalla, un **triángulo verde brillante (▲)** aparecerá dinámicamente junto a los Pokémon que tengan ataques súper efectivos contra el enemigo actual. ¡Brilla en dorado si el ataque tiene STAB!
 
@@ -119,15 +123,19 @@ Press **← Left Arrow** during the battle menu to open a quick selector for:
 - **Pokéballs** — thrown directly without opening the bag (wild battles only).
 - **Potions** — heals active Pokémon instantly without opening the party menu.
 - Navigate with **↑↓** between categories and **←→** between items.
+- The menu is drawn **above** the battle menu, without overlapping it.
 
 #### 4. 🟦 Type Badges
-Displays **colored squares** next to each Pokémon's level indicator in battle showing its type(s).
+Displays **crisp type icons** next to each Pokémon's level indicator in battle showing its type(s).
 - Inspired by Pokémon Gold/Silver type badges.
-- Supports both Classic 2D and **Voxel 3D** modes.
+- Uses the **15 real Generation 1 types** (with a color fallback if the image is missing).
+- Rendered at window resolution, supporting both Classic 2D and **Voxel 3D** modes.
 
 #### 5. ⚔️ Effective Markers & Party Advantage
 Displays move effectiveness and party advantages (inspired by modern Switch Pokémon games):
 - **Battle Markers**: When selecting a move, shows a green (Super Effective), grey (No Effect), or red (Not Very Effective) icon.
+- **Damage Multiplier**: Shows the colored numeric multiplier (**×0 / ×1 / ×2 / ×4 / ×.5 / ×.25**) next to the marker (green/red/grey).
+- **Best Move Suggestion**: A **pulsing golden square** highlights the move with the best expected damage (power × effectiveness).
 - **STAB Highlight**: Moves that share a type with your Pokémon gain a **gold border and animated pulse** highlighting maximum power.
 - **Party Advantage**: When opening the Party Menu in battle, a **bright green triangle (▲)** appears dynamically next to Pokémon that have a super-effective move against the current enemy. It glows GOLD if the move has STAB!
 

@@ -192,14 +192,14 @@ return function(mod)
                 local pshader = love.graphics.getShader()
                 local pblendMode, pblendAlpha = love.graphics.getBlendMode()
                 
-                local shot = self.dramaticShapeShot
-                local isVoxel = shot and shot.canvas and shot.scale
-                
-                if isVoxel then love.graphics.setCanvas(shot.canvas) end
-                
                 love.graphics.setShader()
                 love.graphics.setBlendMode("alpha", "alphamultiply")
                 
+                -- El menú se dibuja en el canvas UI (160x144 nativo, el activo
+                -- durante BattleState:draw); dibujar ahí también, en coords
+                -- nativas, deja el box ENCIMA del menú FIGHT/PKMN/ITEM/RUN en
+                -- la composición (el mundo/DRAMATIC_SHAPE queda debajo del
+                -- canvas UI). Cambiar a shot.canvas lo ponía bajo el menú.
                 if self:wideLayout() then
                     Font.drawBox(0, 13, 38, 5)
                     for i, text in ipairs(lines) do
