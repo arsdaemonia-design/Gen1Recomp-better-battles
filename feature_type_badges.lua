@@ -1,7 +1,15 @@
-return function(mod)
+return function(mod, services, log)
     local BattleState = require("src.battle.BattleState")
     local PaletteFX = require("src.render.PaletteFX")
     local Assets = require("src.render.Assets")
+    local TypeChart = require("src.battle.TypeChart")
+
+    -- El ID interno de Psychic en los datos es "PSYCHIC_TYPE" (el nombre
+    -- visible es "PSYCHIC"); los demás tipos usan su nombre como ID.
+    -- displayName normaliza el ID runtime a la clave de los iconos/colores.
+    local function typeKey(t)
+        return TypeChart and TypeChart.displayName and TypeChart.displayName(t) or t
+    end
 
     -- Iconos de tipo, ya partidos de types.png en assets/type_<tipo>.png.
     -- types.png trae los 18 tipos, pero esta versión es Gen 1 (Red/Blue/
@@ -133,7 +141,7 @@ return function(mod)
 
     -- Hook BattleState:draw (DESPUÉS del render, como status_ui)
     local original_draw = BattleState.draw
-    function BattleState:draw(...)
+    BattleState.draw = log.guard("type_badges.draw", function(self, ...)
         original_draw(self, ...)
         if not isFeatureEnabled(self.game) then return end
 
@@ -186,12 +194,14 @@ return function(mod)
 
                 local offset = 0
                 for _, t in ipairs(enemyData.types) do
+                    local key = typeKey(t)
                     local w
                     if isVoxel then
-                        w = drawTypeIcon(g, t, bx + offset + hudShake, by, sz)
+                        w = drawTypeIcon(g, key, bx + offset + hudShake, by, sz)
                     else
-                        w = getScaledIcon(t, sz).w
-                        collected[#collected + 1] = { t = t, x = bx + offset + hudShake, y = by, h = sz }
+                        local c = getScaledIcon(key, sz)
+                        w = (c and c.w) or (sz + 2)
+                        collected[#collected + 1] = { t = key, x = bx + offset + hudShake, y = by, h = sz }
                     end
                     offset = offset + w + 1 * s
                 end
@@ -213,9 +223,10 @@ return function(mod)
                 local totalW = 0
                 local widths = {}
                 for i, t in ipairs(playerData.types) do
-                    local img = typeIcon[t]
+                    local key = typeKey(t)
+                    local img = typeIcon[key]
                     if img then
-                        widths[i] = getScaledIcon(t, sz).w
+                        widths[i] = getScaledIcon(key, sz).w
                     else
                         widths[i] = sz + 2
                     end
@@ -234,10 +245,11 @@ return function(mod)
 
                 local offset = 0
                 for i, t in ipairs(playerData.types) do
+                    local key = typeKey(t)
                     if isVoxel then
-                        drawTypeIcon(g, t, bx + offset, by, sz)
+                        drawTypeIcon(g, key, bx + offset, by, sz)
                     else
-                        collected[#collected + 1] = { t = t, x = bx + offset, y = by, h = sz }
+                        collected[#collected + 1] = { t = key, x = bx + offset, y = by, h = sz }
                     end
                     offset = offset + widths[i] + math.floor(1 * s)
                 end
@@ -256,12 +268,13 @@ return function(mod)
         g.setShader(prevShader)
         g.setColor(pr, pg, pb, pa)
         g.setCanvas(prevCanvas)
-    end
+    end)
 
     -- En no-voxel, dibujar los iconos sobre el frame compuesto a resolución
     -- de ventana (igual que el shot.canvas del voxel), nítidos y a tamaño
     -- real, en vez de dejar que se vean diminutos en el canvas 160x144.
-    mod.hooks:wrap("render.hud", function(nextFn, game, viewport)
+    mod.hooks:wrap("render.hud", log.guard("type_badges.render.hud",
+        function(nextFn, game, viewport)
         nextFn(game, viewport)
         local data = pendingIcons
         pendingIcons = nil
@@ -278,5 +291,5 @@ return function(mod)
         end
         g.pop()
         g.setShader(prevShader)
-    end)
+    end))
 end

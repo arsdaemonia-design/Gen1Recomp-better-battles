@@ -138,6 +138,18 @@ return function(mod, services)
     end)
 
 
+    -- Log de errores del mod (escribe a better-battles.log y al Logger del
+    -- juego). Se carga una sola vez y se pasa a cada feature.
+    local log = loadModule("errorlog.lua")()
+    if not (log and log.guard) then
+        log = {
+            info = function() end,
+            warn = function() end,
+            error = function() end,
+            guard = function(_, fn) return fn end,
+        }
+    end
+
     -- Cargar los submódulos de características
     local features = {
         loadModule("feature_status_ui.lua"),
@@ -149,6 +161,6 @@ return function(mod, services)
 
     -- Ejecutar/Instalar cada característica
     for _, featureInstall in ipairs(features) do
-        featureInstall(mod, services)
+        featureInstall(mod, services, log)
     end
 end

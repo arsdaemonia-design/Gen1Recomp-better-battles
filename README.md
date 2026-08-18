@@ -1,6 +1,6 @@
 # 🥊 Better Battles — Gen1Recomp Mod
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/arsdaemonia-design/Gen1Recomp-better-battles/releases)
+[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/arsdaemonia-design/Gen1Recomp-better-battles/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 [Español](#español) | [English](#english)
@@ -40,10 +40,18 @@ Muestra **iconos de tipo nítidos** al lado del nivel de cada Pokémon en batall
 #### 5. ⚔️ Effective Markers & Party Advantage
 Muestra la efectividad de los ataques y ventajas de equipo (inspirado en Pokémon Switch):
 - **Battle Markers**: Al seleccionar un ataque, muestra un icono verde (Súper Efectivo), gris (Sin Efecto) o rojo (Poco Efectivo).
-- **Damage Multiplier**: Muestra el multiplicador numérico (**×0 / ×1 / ×2 / ×4 / ×.5 / ×.25**) coloreado junto al marcador (verde/rojo/gris).
 - **Best Move Suggestion**: Un **cuadrado dorado pulsante** resalta el movimiento con el mejor daño esperado (potencia × efectividad).
 - **STAB Highlight**: Los ataques que comparten tipo con tu Pokémon reciben un **brillo dorado y pulso animado**.
 - **Party Advantage**: Al abrir tu Mochila de Equipo en batalla, un **triángulo verde brillante (▲)** aparecerá dinámicamente junto a los Pokémon que tengan ataques súper efectivos contra el enemigo actual. ¡Brilla en dorado si el ataque tiene STAB!
+
+---
+
+### 📜 Changelog v1.2.0
+
+- **Fix crítico**: Se corrigió un cierre de juego al enfrentar Pokémon de tipo **Psíquico** (ej. Abra). El ID interno del tipo en los datos es `PSYCHIC_TYPE` (nombre visible "PSYCHIC"), por lo que la búsqueda del icono devolvía `nil` y causaba un error. Ahora los tipos se normalizan con `TypeChart.displayName`.
+- **Fix**: `getScaledIcon(...).w` ya no intenta leer `nil` si falta un icono (usa el cuadrito de color como respaldo).
+- **Removido**: Se eliminó el multiplicador numérico (×0 / ×1 / ×2 / ×.5 / ×.25) junto al marcador para simplificar la interfaz.
+- **Nuevo**: Log de errores del mod — si algo falla en el dibujo, escribe `better-battles.log` en la carpeta de guardado (y no cierra la partida sin avisar).
 
 ---
 
@@ -134,10 +142,18 @@ Displays **crisp type icons** next to each Pokémon's level indicator in battle 
 #### 5. ⚔️ Effective Markers & Party Advantage
 Displays move effectiveness and party advantages (inspired by modern Switch Pokémon games):
 - **Battle Markers**: When selecting a move, shows a green (Super Effective), grey (No Effect), or red (Not Very Effective) icon.
-- **Damage Multiplier**: Shows the colored numeric multiplier (**×0 / ×1 / ×2 / ×4 / ×.5 / ×.25**) next to the marker (green/red/grey).
 - **Best Move Suggestion**: A **pulsing golden square** highlights the move with the best expected damage (power × effectiveness).
 - **STAB Highlight**: Moves that share a type with your Pokémon gain a **gold border and animated pulse** highlighting maximum power.
 - **Party Advantage**: When opening the Party Menu in battle, a **bright green triangle (▲)** appears dynamically next to Pokémon that have a super-effective move against the current enemy. It glows GOLD if the move has STAB!
+
+---
+
+### 📜 Changelog v1.2.0
+
+- **Critical fix**: Fixed a crash (game closing) when facing **Psychic**-type Pokémon (e.g. Abra). The game's internal type ID is `PSYCHIC_TYPE` (display name "PSYCHIC"), so the badge lookup returned `nil` and errored. Types are now normalized via `TypeChart.displayName`.
+- **Fix**: `getScaledIcon(...).w` no longer dereferences `nil` when an icon is missing (falls back to the color square).
+- **Removed**: The numeric multiplier (×0 / ×1 / ×2 / ×.5 / ×.25) next to the marker, to keep the UI simpler.
+- **New**: Mod error log — if a drawing error occurs, it writes `better-battles.log` to the save folder (and no longer silently closes the game).
 
 ---
 

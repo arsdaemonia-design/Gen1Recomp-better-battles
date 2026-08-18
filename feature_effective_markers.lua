@@ -1,19 +1,7 @@
-return function(mod)
+return function(mod, services, log)
     local BattleState = require("src.battle.BattleState")
     local PaletteFX = require("src.render.PaletteFX")
-    local Font = require("src.render.Font")
     local PartyMenu = require("src.ui.PartyMenu")
-
-    -- Fuente TTF PlainPixel (respeto de color): se usa para colorear el
-    -- multiplicador de efectividad (verde/rojo/negro). Se carga perezosa.
-    local modFont = nil
-    local function loadModFont()
-        if modFont then return modFont end
-        local ok, f = pcall(love.graphics.newFont,
-                            Font.PLAINPIXEL, Font.PLAINPIXEL_SIZE, "mono")
-        if ok then modFont = f end
-        return modFont
-    end
 
     local activeBattle = nil
 
@@ -39,9 +27,6 @@ return function(mod)
         end
         return false
     end
-
-    local NO_EFFECT_GLYPH = 0xF1
-    local MORE_ARROW = 0xEE
 
     -- Mapeo canvas UI -> ventana (replica Renderer:endFrame). Se usa en
     -- render.hud para dibujar el overlay a resolución de ventana, igual que
@@ -72,7 +57,7 @@ return function(mod)
     local pendingMarker = nil
 
     local original_draw = BattleState.draw
-    function BattleState:draw(...)
+    BattleState.draw = log.guard("effective_markers.draw", function(self, ...)
         original_draw(self, ...)
 
         if not isFeatureEnabled(self.game) then return end
@@ -103,21 +88,6 @@ return function(mod)
             y = 120
         end
 
-        -- Multiplicador numérico, a la izquierda del triángulo del marcador
-        local label
-        if mult == 0 then label = "×0"
-        elseif mult == 10 then label = "×1"
-        elseif mult == 20 then label = "×2"
-        elseif mult == 40 then label = "×4"
-        elseif mult == 5 then label = "×.5"
-        else label = "×.25" end
-        local lx, lny
-        if wide then
-            lx, lny = 266, 114
-        else
-            lx, lny = 58, 69
-        end
-
         -- Sugerir el movimiento con mejor daño esperado (efectividad × potencia)
         local bestIdx, bestScore = nil, 0
         for i, mv in ipairs(self.player.curMoves or {}) do
@@ -145,8 +115,9 @@ return function(mod)
             g.setShader()
 
             local s = shot.scale
+            local lx = shot.lx or 0
             local ly = shot.ly or 0
-            local cx = (x + 2) * s
+            local cx = lx + (x + 2) * s
             local cy = ly + (y + 2) * s
             local size = 3 * s
 
@@ -209,32 +180,8 @@ return function(mod)
                 end
                 local pulse = math.sin(love.timer.getTime() * 8) * 0.2 + 0.8
                 g.setColor(1 * pulse, 0.84 * pulse, 0, 1) -- Dorado
-                g.rectangle("fill", ix * s - 2 * s, ly + iy * s - 2 * s, 4 * s, 4 * s)
+                g.rectangle("fill", lx + ix * s - 2 * s, ly + iy * s - 2 * s, 4 * s, 4 * s)
             end
-
-            -- Multiplicador con la fuente TTF coloreada
-            g.push()
-            g.translate(shot.lx or 0, shot.ly or 0)
-            g.scale(s, s)
-            g.push()
-            g.translate(lx, lny)
-            g.scale(0.5, 0.5)
-            local prevFont = g.getFont()
-            local ttf = loadModFont()
-            local colored = ttf and ttf.hasGlyphs and ttf:hasGlyphs(label)
-            if colored then
-                g.setFont(ttf)
-                if mult > 10 then g.setColor(0, 0.8, 0.1, 1)
-                elseif mult < 10 and mult > 0 then g.setColor(0.85, 0.05, 0.05, 1)
-                else g.setColor(0.1, 0.1, 0.1, 1) end
-                g.print(label, 0, 0)
-            else
-                g.setColor(0, 0, 0, 1)
-                Font.draw(label, 0, 0)
-            end
-            g.setFont(prevFont)
-            g.pop()
-            g.pop()
 
             g.pop()
             g.setShader(prevShader)
@@ -243,16 +190,16 @@ return function(mod)
             pendingMarker = {
                 x = x, y = y, wide = wide,
                 mult = mult, stab = stab,
-                label = label, lx = lx, lny = lny,
                 bestIdx = bestIdx,
                 battle = self,
             }
         end
-    end
+    end)
 
     -- En no-voxel, dibujar el overlay del moveSelect sobre el frame compuesto
     -- a resolución de ventana, igual que el shot.canvas del modo voxel.
-    mod.hooks:wrap("render.hud", function(nextFn, game, viewport)
+    mod.hooks:wrap("render.hud", log.guard("effective_markers.render.hud",
+        function(nextFn, game, viewport)
         nextFn(game, viewport)
         local d = pendingMarker
         pendingMarker = nil
@@ -266,8 +213,8 @@ return function(mod)
         g.push()
 
         local uox, uoy, Ux, Uy = uiOriginAndScale()
-        local cx = uox + (d.x + 2) * Ux
-        local cy = uoy + (d.y + 2) * Uy
+        local cx = math.floor(uox + (d.x + 2) * Ux)
+        local cy = math.floor(uoy + (d.y + 2) * Uy)
         local size = 3 * Ux
         local stab = d.stab
         local mult = d.mult
@@ -330,32 +277,12 @@ return function(mod)
             end
             local pulse = math.sin(love.timer.getTime() * 8) * 0.2 + 0.8
             g.setColor(1 * pulse, 0.84 * pulse, 0, 1) -- Dorado
-            g.rectangle("fill", uox + ix * Ux - 2 * Ux, uoy + iy * Uy - 2 * Uy, 4 * Ux, 4 * Uy)
+            g.rectangle("fill", math.floor(uox + ix * Ux - 2 * Ux), math.floor(uoy + iy * Uy - 2 * Uy), 4 * Ux, 4 * Uy)
         end
-
-        -- Multiplicador con la fuente TTF coloreada, a la izquierda del marcador
-        g.push()
-        g.translate(uox + d.lx * Ux, uoy + d.lny * Uy)
-        g.scale(0.5 * Ux, 0.5 * Uy)
-        local prevFont = g.getFont()
-        local ttf = loadModFont()
-        local colored = ttf and ttf.hasGlyphs and ttf:hasGlyphs(d.label)
-        if colored then
-            g.setFont(ttf)
-            if mult > 10 then g.setColor(0, 0.8, 0.1, 1)
-            elseif mult < 10 and mult > 0 then g.setColor(0.85, 0.05, 0.05, 1)
-            else g.setColor(0.1, 0.1, 0.1, 1) end
-            g.print(d.label, 0, 0)
-        else
-            g.setColor(0, 0, 0, 1)
-            Font.draw(d.label, 0, 0)
-        end
-        g.setFont(prevFont)
-        g.pop()
 
         g.pop()
         g.setShader(prevShader)
-    end)
+    end))
 
     -- ========================================================================
     -- 2. Ventaja en Menú de Equipo (PartyMenu Advantage)

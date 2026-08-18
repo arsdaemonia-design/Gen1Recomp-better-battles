@@ -20,6 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Effective Markers**: Fixed crash when opening the FIGHT/PKM menu by replacing the non-existent `mod.content.types:getEffectiveness` with `TypeChart.effectiveness` (`src/battle/TypeChart.lua`).
 - **Quick Item**: Fixed layering so the quick item menu is drawn above the battle menu in all modes (previously it could render behind it in Voxel).
 
+## [1.2.0] - 2026-08-17
+
+### Fixed
+- **Type Badges**: Fixed crash/soft-lock when facing a Psychic-type Pokémon (e.g. Abra). The game's internal type ID is `PSYCHIC_TYPE` (display name "PSYCHIC"), so the badge lookup returned `nil` and `getScaledIcon(...).w` errored. Types are now normalized via `TypeChart.displayName` before lookup; `PSYCHIC_TYPE` → `PSYCHIC` (the only Gen 1 type whose ID differs from its visible name).
+- **Type Badges**: `getScaledIcon(...).w` no longer dereferences `nil` if an icon is missing (falls back to the color square width).
+- **Effective Markers**: Removed the numeric multiplier (×0/×1/×2/...) — it misaligned on Android landscape; only the shape marker and the golden best-move square remain.
+
+### Added
+- **Error Log**: The mod now writes runtime errors to `better-battles.log` in the save directory and logs via the engine logger. Drawing hooks are wrapped so a mod error logs the traceback instead of silently closing the game.
+
 ## [1.0.0] - 2026-08-09
 
 ### Added
